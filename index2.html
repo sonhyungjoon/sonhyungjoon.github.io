@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>실시간 위치 추적 (위치 기록)</title>
+    <link rel="stylesheet" href="/Users/sonhyeongjun/Desktop/갤러리 9:5 웹/leaflet/leaflet.css" />
+    <script src="/Users/sonhyeongjun/Desktop/갤러리 9:5 웹/leaflet/leaflet.js"></script>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 60vh;
+            width: 100%;
+        }
+        #info, #debug, #controls {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-top: 1px solid #ccc;
+        }
+        h1 {
+            font-size: 1.5em;
+            text-align: center;
+            padding: 10px;
+            margin: 0;
+            background-color: #4CAF50;
+            color: white;
+        }
+        button {
+            padding: 10px;
+            margin: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>실시간 위치 추적 (위치 기록)</h1>
+    <div id="map"></div>
+    <div id="controls">
+        <button id="startTracking">추적 시작</button>
+        <button id="stopTracking">추적 중지</button>
+        <button id="clearTrack">경로 지우기</button>
+    </div>
+    <div id="info"></div>
+    <div id="debug"></div>
+    <script>
+        let map, marker, circle, polyline;
+        let isTracking = false;
+        let trackCoordinates = [];
+
+        function initMap() {
+            map = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            polyline = L.polyline([], {color: 'red'}).addTo(map);
+            document.getElementById('debug').innerHTML += "지도가 초기화되었습니다.<br>";
+        }
+
+        function updatePosition(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            if (marker) {
+                marker.setLatLng([lat, lon]);
+                circle.setLatLng([lat, lon]);
+                circle.setRadius(accuracy);
+            } else {
+                marker = L.marker([lat, lon]).addTo(map);
+                circle = L.circle([lat, lon], {radius: accuracy}).addTo(map);
+            }
+            map.setView([lat, lon], 15);
+            document.getElementById('info').innerHTML = `
+                위도: ${lat.toFixed(6)}<br>
+                경도: ${lon.toFixed(6)}<br>
+                정확도: ${accuracy.toFixed(2)}m
+            `;
+
+            if (isTracking) {
+                trackCoordinates.push([lat, lon]);
+                polyline.setLatLngs(trackCoordinates);
+            }
+
+            document.getElementById('debug').innerHTML += "위치가 업데이트되었습니다.<br>";
+        }
+
+        function handleError(error) {
+            let message;
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message = "위치 정보 접근 권한이 거부되었습니다.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = "위치 정보를 사용할 수 없습니다.";
+                    break;
+                case error.TIMEOUT:
+                    message = "위치 정보 요청 시간이 초과되었습니다.";
+                    break;
+                case error.UNKNOWN_ERROR:
+                    message = "알 수 없는 오류가 발생했습니다.";
+                    break;
+            }
+            document.getElementById('debug').innerHTML += "오류: " + message + "<br>";
+        }
+
+        function startTracking() {
+            isTracking = true;
+            document.getElementById('debug').innerHTML += "위치 추적이 시작되었습니다.<br>";
+        }
+
+        function stopTracking() {
+            isTracking = false;
+            document.getElementById('debug').innerHTML += "위치 추적이 중지되었습니다.<br>";
+        }
+
+        function clearTrack() {
+            trackCoordinates = [];
+            polyline.setLatLngs([]);
+            document.getElementById('debug').innerHTML += "경로가 지워졌습니다.<br>";
+        }
+
+        window.onload = function() {
+            initMap();
+            if ("geolocation" in navigator) {
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                };
+                navigator.geolocation.watchPosition(updatePosition, handleError, options);
+                document.getElementById('debug').innerHTML += "위치 추적이 시작되었습니다.<br>";
+            } else {
+                document.getElementById('debug').innerHTML += "이 브라우저에서는 Geolocation이 지원되지 않습니다.<br>";
+            }
+
+            document.getElementById('startTracking').addEventListener('click', startTracking);
+            document.getElementById('stopTracking').addEventListener('click', stopTracking);
+            document.getElementById('clearTrack').addEventListener('click', clearTrack);
+        };
+    </script>
+</body>
+</html>
